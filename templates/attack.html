@@ -47,12 +47,12 @@
 </div>
 
 <script>
-/*
-  Templates in CALDERA are now enhanced with Alpine.js! It's essentially
-  a replacement for jQuery that has similar features to Vue and React.
-  Read up on the docs before you get started working on the UI: https://alpinejs.dev/
-*/
 
+/*TODOS: 
+1)Per ora si vedono tutti gli agent, ma a me servono solo quelli alive
+2)Il retrieving di tutte le abilità
+3) La funzione per mandarle sull'agent
+*/
 function alpineAttack() {
     return {
         name: '{{ name }}',
@@ -60,7 +60,7 @@ function alpineAttack() {
         sampleVariable: '',
 
         initPage() {
-            
+            //using the Caldera API to retrieve agents and then sort before list them
             apiV2('GET', '/api/v2/agents').then((agents) => {
                     this.agents = agents;
                     this.sortAgents();
@@ -99,6 +99,11 @@ function alpineAttack() {
                     ability : this.ability
 			};
             console.log(requestBody)
+            if(this.agent == 'undefined') {
+                document.getElementById("res").innerHTML = "ERROR: Undefined agent selected"
+                alert("Check the agent");
+            }
+            else {
             	document.getElementById("res").innerHTML = "Waiting for response..."
                 apiV2('POST', '/plugin/attack/sendability', requestBody).then((response) => {  
                     document.getElementById("res").innerHTML = "Output: "
@@ -109,7 +114,7 @@ function alpineAttack() {
                 toast('Error loading page', false);
                 console.error(error);    
                 alert(error);
-            })
+            }) }
         }
     };
 }
