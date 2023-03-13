@@ -6,11 +6,46 @@
         <h2 x-text="name"></h2>
         <p x-text="description"></p>
     </div>
-    <hr>
-    <div>
-        <button class="button is-primary is-small" @click="sampleFunction()">Click Me</button>
-        <p x-text="sampleVariable"></p>
-    </div>
+    <body>
+        <style>
+            button {
+              display: block;
+              margin: 0 auto;
+              font-size: 24px;
+              padding: 10px 20px;
+              color: #ffffff;
+              background-color: #8f0000;
+              border: none;
+              border-radius: 5px;
+              cursor: pointer;
+            }
+            label {
+              display: block;
+              font-size: 20px;
+              margin-bottom: 5px;
+            }
+          </style>
+        <form>
+          <label for="menu1">Select the ability:</label>
+          <select id="menu1">
+            <option value="opzione1">Opzione 1</option>
+            <option value="opzione2">Opzione 2</option>
+            <option value="opzione3">Opzione 3</option>
+          </select>
+          <br>
+          <label for="menu2">Select the agent:</label>
+          <select id="menu2">
+            <option value="opzione1">Opzione 1</option>
+            <option value="opzione2">Opzione 2</option>
+            <option value="opzione3">Opzione 3</option>
+          </select>
+          <br><br>
+          <button type="submit" style="font-size: 24px;">Send</button>
+        </form>
+      </body>
+    
+    
+    
 </div>
 
 <script>
