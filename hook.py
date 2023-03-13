@@ -13,6 +13,7 @@ async def enable(services):
     attack_gui = AttackGUI(services, name=name, description=description)
     app.router.add_static('/attack', 'plugins/attack/static/', append_version=True)
     app.router.add_route('GET', '/plugin/attack/gui', attack_gui.splash)
+    app.router.add_route('POST', '/plugin/attack/sendability', attack_gui.sendability)
 
     attack_api = AttackAPI(services)
     # Add API routes here

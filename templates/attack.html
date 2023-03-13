@@ -26,25 +26,23 @@
             }
           </style>
         <form>
-          <label for="menu1">Select the ability:</label>
-          <select id="menu1">
+          <label for="ability">Select the ability:</label>
+          <select id="abilityselect">
             <option value="opzione1">Opzione 1</option>
             <option value="opzione2">Opzione 2</option>
             <option value="opzione3">Opzione 3</option>
           </select>
           <br>
-          <label for="menu2">Select the agent:</label>
-          <select id="menu2">
-            <option value="opzione1">Opzione 1</option>
-            <option value="opzione2">Opzione 2</option>
-            <option value="opzione3">Opzione 3</option>
+          <label for="agent">Select the agent: (paw - last seen - host)</label>
+          <select id="agentselect">
           </select>
           <br><br>
-          <button type="submit" style="font-size: 24px;">Send</button>
+          <button type="submit" x-on:click="dataSend" style="font-size: 24px;">Send</button>
         </form>
       </body>
-    
-    
+      <br>
+      <h3 id="res"></h3><br>
+      <p id="output"></p>
     
 </div>
 
@@ -62,19 +60,56 @@ function alpineAttack() {
         sampleVariable: '',
 
         initPage() {
-            // Sample API request
-            apiV2('GET', '/api/v2/health').then((response) => {
-                console.log('Woohoo, this page can talk to the API!');
+            
+            apiV2('GET', '/api/v2/agents').then((agents) => {
+                    this.agents = agents;
+                    this.sortAgents();
+                    console.log(this.agents)
+                    //check if there are agents deployed
+                    if((this.agents).length == 0 ) {
+                        const option = document.createElement('option');
+                        option.value = 'undefined';
+                        option.textContent = 'No agents deployed, you have to deploy one before...';
+                        const menu1 = document.getElementById('agentselect');
+                        menu1.appendChild(option);
+                    }
+                    else {
+                    for (let i = 0; i < this.agents.length; i++) {
+                    const option = document.createElement('option');
+                    option.value = this.agents[i].paw;  //the id will be only the paw, cause that's all we need to run an ability
+                    option.textContent = this.agents[i].paw + ' -  ' + this.agents[i].last_seen + '   -  ' + this.agents[i].host;
+                    const menu1 = document.getElementById('agentselect');
+                    menu1.appendChild(option);
+                    } }
             }).catch((error) => {
-                // Call toast from anywhere within CALDERA to notify users of events
-                // toast(message, isSuccess)
-                toast('Error loading page', false);
-                console.error(error);
-            });
+                alert(error);
+            })
+        
         },
 
-        sampleFunction() {
-            this.sampleVariable = 'You clicked the button!';
+        sortAgents() {
+                this.agents.sort((a, b) => new Date(b.last_seen.replace(/-/g, "/")).getTime() - new Date(a.last_seen.replace(/-/g, "/")).getTime());
+            },
+
+        dataSend() {
+            this.agent = document.getElementById('agentselect').value;
+            this.ability = document.getElementById('abilityselect').value;
+            let requestBody = {
+                    agent: this.agent,
+                    ability : this.ability
+			};
+            console.log(requestBody)
+            	document.getElementById("res").innerHTML = "Waiting for response..."
+                apiV2('POST', '/plugin/attack/sendability', requestBody).then((response) => {  
+                    document.getElementById("res").innerHTML = "Output: "
+                    document.getElementById("output").innerHTML = response
+
+                }).catch((error) => {
+                document.getElementById("res").innerHTML = "Something  went wrong, see logs for more information"
+                toast('Error loading page', false);
+                console.error(error);    
+                alert(error);
+            })
         }
     };
 }

@@ -11,3 +11,6 @@ class AttackService:
         return 'bar'
 
     # Add functions here that call core services
+
+    async def  send_ability(self, agent, ability):
+        return 0
