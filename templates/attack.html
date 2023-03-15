@@ -26,16 +26,23 @@
             }
           </style>
         <form>
-          <label for="ability">Select the ability:</label>
-          <select id="abilityselect">
-            <option value="opzione1">Opzione 1</option>
-            <option value="opzione2">Opzione 2</option>
-            <option value="opzione3">Opzione 3</option>
-          </select>
-          <br>
           <label for="agent">Select the agent: (paw - last seen - host)</label>
           <select id="agentselect">
           </select>
+          <br>
+          <div x-data="{ input: '', results: [], selectedIndex: null, selectedability: null }">
+            <label for="searchAbility">Cerca una abilità: </label>
+            <input type="text" x-model="input" x-on:input="searchAbility" />
+            <select x-show="results.length > 0" x-model="selectedIndex" x-on:change="selectedability = results[selectedIndex]">
+              <template x-for="(result, index) in results">
+                <option :value="index" x-text="result.name"></option>
+              </template>
+            </select>
+            <div>
+              <label for="selectedability">Abilità selezionata:</label>
+              <input type="text" id="selectedability" x-model="selectedability.name" readonly />
+            </div>
+          </div>
           <br><br>
           <button type="submit" x-on:click="dataSend" style="font-size: 24px;">Send</button>
         </form>
@@ -84,16 +91,35 @@ function alpineAttack() {
             }).catch((error) => {
                 alert(error);
             })
+
+            //retrieve the list of abilities
+            apiV2('GET', 'api/v2/abilities').then(async (abilities) => {
+                    this.abilities = abilities;
+
+            }).catch((error) => {
+                alert(error);
+            })
         
         },
 
         sortAgents() {
                 this.agents.sort((a, b) => new Date(b.last_seen.replace(/-/g, "/")).getTime() - new Date(a.last_seen.replace(/-/g, "/")).getTime());
             },
+        
+
+        searchAbility() {
+            
+            const input = this.input.toLowerCase();
+            const results = this.abilities.filter(obj => obj.name.toLowerCase().includes(input));
+            this.results = results;
+            this.selectedIndex = null;
+
+        },
+
 
         dataSend() {
             this.agent = document.getElementById('agentselect').value;
-            this.ability = document.getElementById('abilityselect').value;
+            this.selectedability = document.getElementById('selectedability').value;
             let requestBody = {
                     agent: this.agent,
                     ability : this.ability
@@ -102,6 +128,11 @@ function alpineAttack() {
             if(this.agent == 'undefined') {
                 document.getElementById("res").innerHTML = "ERROR: Undefined agent selected"
                 alert("Check the agent");
+            }
+            
+            else if(this.ability == null) {
+                document.getElementById("res").innerHTML = "ERROR: Choose the ability"
+                alert("Check the ability");
             }
             else {
             	document.getElementById("res").innerHTML = "Waiting for response..."
