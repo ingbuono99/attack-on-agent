@@ -30,7 +30,7 @@
           <select id="agentselect">
           </select>
           <br>
-          <div x-data="{ input: '', results: [], selectedIndex: null, selectedability: null }">
+          <div x-data="{ input: '', results: [], selectedIndex: null, selectedability: 'null' }">
             <label for="searchAbility">Cerca una abilità: </label>
             <input type="text" x-model="input" x-on:input="searchAbility" />
             <select x-show="results.length > 0" x-model="selectedIndex" x-on:change="selectedability = results[selectedIndex]">
@@ -39,8 +39,8 @@
               </template>
             </select>
             <div>
-              <label for="selectedability">Abilità selezionata:</label>
-              <input type="text" id="selectedability" x-model="selectedability.name" readonly />
+              <label for="selectedability">ID dell'abilità selezionata:</label>
+              <input type="text" id="selectedability" x-model="selectedability.ability_id" readonly />
             </div>
           </div>
           <br><br>
@@ -50,6 +50,9 @@
       <br>
       <h3 id="res"></h3><br>
       <p id="output"></p>
+      <p id="output2"></p>
+      <br><br>
+      <button type="submit" x-on:click="checkLink" style="font-size: 24px;">Vedi output MOMENTANEO</button>
     
 </div>
 
@@ -65,19 +68,59 @@ function alpineAttack() {
         name: '{{ name }}',
         description: '{{ description }}',
         sampleVariable: '',
+        links : [],
+        obfuscators : [],
+        abilities : [],
+        agents : [],
 
         initPage() {
-            //using the Caldera API to retrieve agents and then sort before list them
-            apiV2('GET', '/api/v2/agents').then((agents) => {
+                apiV2('GET', '/api/v2/agents').then((agents) => {
                     this.agents = agents;
-                    this.sortAgents();
-                    console.log(this.agents)
-                    //check if there are agents deployed
-                    if((this.agents).length == 0 ) {
+                    return apiV2('GET', '/api/v2/abilities');
+                }).then((abilities) => {
+                    this.abilities = abilities;
+                   
+                    return apiV2('GET', '/api/v2/obfuscators');
+                }).then(async (obfuscators) => {
+                    this.obfuscators = obfuscators;
+
+                    while (true) {
+                        await sleep(3000);
+                        this.refreshAgents();
+                        this.domCreate();
+                    }
+                }).catch((error) => {
+                    toast('There was an error initializing the page', false);
+                    console.error(error);
+                });
+            },
+
+        refreshAgents() {
+                apiV2('GET', '/api/v2/agents').then((agents) => {
+                    this.agents = agents;
+                }).catch((error) => {
+                    toast('There was an error refreshing the page', false);
+                    console.error(error);
+                });
+            },
+
+
+        sortAgents() {
+                this.agents.sort((a, b) => new Date(b.last_seen.replace(/-/g, "/")).getTime() - new Date(a.last_seen.replace(/-/g, "/")).getTime());
+            },
+        
+
+        domCreate() {
+          //remove all the options in the menu, then update the list with the new refreshed agents
+          const menu1 = document.getElementById('agentselect');
+          const options = menu1.querySelectorAll('option');
+          options.forEach(option => option.remove());
+          //check if there are agents deployed
+          if((this.agents).length == 0 ) {
                         const option = document.createElement('option');
                         option.value = 'undefined';
                         option.textContent = 'No agents deployed, you have to deploy one before...';
-                        const menu1 = document.getElementById('agentselect');
+                       
                         menu1.appendChild(option);
                     }
                     else {
@@ -85,27 +128,11 @@ function alpineAttack() {
                     const option = document.createElement('option');
                     option.value = this.agents[i].paw;  //the id will be only the paw, cause that's all we need to run an ability
                     option.textContent = this.agents[i].paw + ' -  ' + this.agents[i].last_seen + '   -  ' + this.agents[i].host;
-                    const menu1 = document.getElementById('agentselect');
+                   
                     menu1.appendChild(option);
                     } }
-            }).catch((error) => {
-                alert(error);
-            })
 
-            //retrieve the list of abilities
-            apiV2('GET', 'api/v2/abilities').then(async (abilities) => {
-                    this.abilities = abilities;
-
-            }).catch((error) => {
-                alert(error);
-            })
-        
         },
-
-        sortAgents() {
-                this.agents.sort((a, b) => new Date(b.last_seen.replace(/-/g, "/")).getTime() - new Date(a.last_seen.replace(/-/g, "/")).getTime());
-            },
-        
 
         searchAbility() {
             
@@ -119,10 +146,16 @@ function alpineAttack() {
 
         dataSend() {
             this.agent = document.getElementById('agentselect').value;
-            this.selectedability = document.getElementById('selectedability').value;
+            this.ability_id = document.getElementById('selectedability').value;
+            this.agent_paw = this.agent.split("-")[0].trim();  //prendo solo il paw
+
+            //DA ACCESS.HTML
+            this.selectedAgent = this.agents.find((agent) => agent.paw === this.agent_paw);
+            this.links = this.selectedAgent.links;
+            
             let requestBody = {
-                    agent: this.agent,
-                    ability : this.ability
+                    paw: this.agent_paw,
+                    ability_id : this.ability_id
 			};
             console.log(requestBody)
             if(this.agent == 'undefined') {
@@ -130,15 +163,20 @@ function alpineAttack() {
                 alert("Check the agent");
             }
             
-            else if(this.ability == null) {
+            else if(this.ability_id == null) {
                 document.getElementById("res").innerHTML = "ERROR: Choose the ability"
                 alert("Check the ability");
             }
             else {
             	document.getElementById("res").innerHTML = "Waiting for response..."
                 apiV2('POST', '/plugin/attack/sendability', requestBody).then((response) => {  
-                    document.getElementById("res").innerHTML = "Output: "
-                    document.getElementById("output").innerHTML = response
+                    document.getElementById("res").innerHTML = "Link-ID: "
+                    const stringa = [];
+                    for(i=0; i < response.length; i++) {
+                      stringa.push('link' + i + ': **' + response[i] + '**'); //the ** are put to easily retrieve the needed string after
+                    }
+                    document.getElementById("output").textContent = stringa
+                    this.linkID_da_passare = response[response.length - 1]; //MOMENTANEAMNTE PRENDO L'ULTIMO ELEMENTO, POI ANDRÀ RECUPERATO L'ID DALL'HTML
 
                 }).catch((error) => {
                 document.getElementById("res").innerHTML = "Something  went wrong, see logs for more information"
@@ -146,7 +184,33 @@ function alpineAttack() {
                 console.error(error);    
                 alert(error);
             }) }
-        }
+        },
+        //!!!!!! DA TOGLIERE E DA IMPLEMENTARE CON LE PROMISE !!!!!!!!!
+       //momentanea, poi la tolgo. Mi serve perchè il link non viene immediatamente aggiunto, c'è un ritardo dovuto dal server.
+        checkLink() {
+          console.log("ajkad", this.linkID_da_passare);
+          this.showOutput(this.linkID_da_passare);
+            },
+
+
+      
+        showOutput(link_id) {
+                this.refreshAgents(); //FORSE NECESSARIO PER AGGIORNARE I LINK
+                this.selectedAgent = this.agents.find((agent) => agent.paw == this.agent_paw);
+                console.log("linkstotali: ", this.selectedAgent.links.length);
+                this.lastlink = this.selectedAgent.links.find((link) => link.id == link_id)
+
+                //.status==0 SUCCESS, .status > 0 FAILED, .status < 0 IN PROGRESS 
+                if(this.lastlink.status >= 0) {
+                restRequest('POST', { 'index': 'result', 'link_id': link_id }, (data) => {
+                    this.outputResult = b64DecodeUnicode(data.output);
+                    console.log("output: ", this.outputResult);
+                    document.getElementById("output2").innerHTML =  this.outputResult;
+                });
+            
+              }
+              else document.getElementById("output2").textContent =  'Still pending...';
+          }
     };
 }
 

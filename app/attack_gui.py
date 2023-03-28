@@ -26,6 +26,14 @@ class AttackGUI(BaseWorld):
 
     async def sendability(self, request):
         data = await request.json()
-        output = await self.laccolith_svc.send_ability(agent=data['agent'], ability=data['ability']); 
-        self.log.info("Operazione eseguita...")
-        return web.json_response(json.dumps(output.json()))  
+        self.log.info("qua arriva" )
+        links = await self.attack_svc.send_ability(paw=data['paw'], ability_id=data['ability_id'], obfuscator = 'plain-text', facts = ()); 
+        self.log.info("Operazione eseguita...link_id: %s", links[0].id)
+        links_id = [None] * len(links)
+        i = 0
+        for link in links:
+            links_id[i] = link.id
+            self.log.info(links_id[i])
+            i = i + 1
+        
+        return web.json_response(links_id)  #PER ORA RITORNO SOLO GLI ID, FORSE SAREBBE MEGLIO RITORNARE GLI OGGETTI??
