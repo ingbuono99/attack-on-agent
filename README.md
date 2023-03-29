@@ -1,5 +1,5 @@
 # attack-on-agent
-A MITRE Caldera plugin used to send a specific ability to a specific agent (previously deployed).
+A MITRE Caldera plugin used to do a spanning of abilities on various agents (without using the API's).
 It is a simplified version of another plugin used in a private repo.
 
 Instructions are very simple:
