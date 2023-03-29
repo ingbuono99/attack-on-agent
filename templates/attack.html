@@ -2,7 +2,7 @@
 <script src="/attack/js/attack.js"></script>
 
 <div x-data="alpineAttack()" x-init="initPage()">
-    <div>
+    <div x-ref="attackHeader">
         <h2 x-text="name"></h2>
         <p x-text="description"></p>
     </div>
@@ -52,8 +52,14 @@
       <p id="output"></p>
       <p id="output2"></p>
       <br><br>
-      <button type="submit" x-on:click="checkLink" style="font-size: 24px;">Vedi output MOMENTANEO</button>
-    
+      <button type="submit" x-on:click="checkLink" style="font-size: 20px;">Vedi output MOMENTANEO</button>
+      <br><br>
+      <label for="op_name" style="color:white">Insert operation name here:</label>
+      <input type="text" id="op_name" name="op_name" placeholder="Operation name">
+      <button type="submit" x-on:click="createOperation" style="font-size: 20px;">Crea operazione</button>
+      <p id="output3"></p>
+      <br><br>
+      
 </div>
 
 <script>
@@ -84,7 +90,7 @@ function alpineAttack() {
                 }).then(async (obfuscators) => {
                     this.obfuscators = obfuscators;
 
-                    while (true) {
+                    while (this.$refs.attackHeader) {
                         await sleep(3000);
                         this.refreshAgents();
                         this.domCreate();
@@ -188,14 +194,13 @@ function alpineAttack() {
         //!!!!!! DA TOGLIERE E DA IMPLEMENTARE CON LE PROMISE !!!!!!!!!
        //momentanea, poi la tolgo. Mi serve perchè il link non viene immediatamente aggiunto, c'è un ritardo dovuto dal server.
         checkLink() {
-          console.log("ajkad", this.linkID_da_passare);
           this.showOutput(this.linkID_da_passare);
             },
 
 
       
         showOutput(link_id) {
-                this.refreshAgents(); //FORSE NECESSARIO PER AGGIORNARE I LINK
+                this.refreshAgents(); //Update agents to update link list
                 this.selectedAgent = this.agents.find((agent) => agent.paw == this.agent_paw);
                 console.log("linkstotali: ", this.selectedAgent.links.length);
                 this.lastlink = this.selectedAgent.links.find((link) => link.id == link_id)
@@ -210,6 +215,22 @@ function alpineAttack() {
             
               }
               else document.getElementById("output2").textContent =  'Still pending...';
+          },
+
+        createOperation(){
+          this.op_name = document.getElementById('op_name').value;
+          console.log(this.op_name);
+          let requestBody = {
+                    name: this.op_name
+                };
+          apiV2('POST', '/plugin/attack/newoperation', requestBody).then((data) => {
+                if(data == 'running') document.getElementById("output3").innerHTML = "Operation created successfully";
+                else console.log(data);
+              
+                }).catch((error) => {
+                    console.error(error);
+                })
+
           }
     };
 }

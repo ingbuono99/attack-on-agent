@@ -26,7 +26,6 @@ class AttackGUI(BaseWorld):
 
     async def sendability(self, request):
         data = await request.json()
-        self.log.info("qua arriva" )
         links = await self.attack_svc.send_ability(paw=data['paw'], ability_id=data['ability_id'], obfuscator = 'plain-text', facts = ()); 
         self.log.info("Operazione eseguita...link_id: %s", links[0].id)
         links_id = [None] * len(links)
@@ -37,3 +36,8 @@ class AttackGUI(BaseWorld):
             i = i + 1
         
         return web.json_response(links_id)  #PER ORA RITORNO SOLO GLI ID, FORSE SAREBBE MEGLIO RITORNARE GLI OGGETTI??
+
+    async def newoperation(self, request):
+        data = await request.json()
+        operation = await self.attack_svc.new_operation(name = data['name']);
+        return web.Response(text = operation.state)
