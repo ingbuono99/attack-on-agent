@@ -58,16 +58,18 @@
       <input type="text" id="op_name" name="op_name" placeholder="Operation name">
       <button type="submit" x-on:click="createOperation" style="font-size: 20px;">Crea operazione</button>
       <p id="output3"></p>
+      <p id="op_id"></p>
       <br><br>
-      
+
+      <button type="button" x-on:click="provaLink" style="font-size: 20px;">Prova nuovo link</button>
+      <p id="output4"></p>
 </div>
 
 <script>
 
 /*TODOS: 
 1)Per ora si vedono tutti gli agent, ma a me servono solo quelli alive
-2)Il retrieving di tutte le abilità
-3) La funzione per mandarle sull'agent
+2) Filtrare le abilities in base all'executor dell'agent selezionato
 */
 function alpineAttack() {
     return {
@@ -197,6 +199,26 @@ function alpineAttack() {
           this.showOutput(this.linkID_da_passare);
             },
 
+        //ANCHE QUESTA DA TOGLIERE, LA METTO PER DEBUGGARE PIÙ VELOCEMENTE
+
+         provaLink() {
+           let requestBody = {
+                     operation_id: this.op_id,
+                     paw: this.selectedAgent.paw,
+                     ability_id : 'b18e8767-b7ea-41a3-8e80-baf65a5ddef5'
+
+                 };
+                 console.log(requestBody)
+                 apiV2('POST', '/plugin/attack/newlink', requestBody).then((data) => {
+                 if(data) 
+                   document.getElementById("output4").textContent = data;
+                 
+              
+                 }).catch((error) => {
+                     console.error(error);
+                 })
+         },
+
 
       
         showOutput(link_id) {
@@ -224,7 +246,11 @@ function alpineAttack() {
                     name: this.op_name
                 };
           apiV2('POST', '/plugin/attack/newoperation', requestBody).then((data) => {
-                if(data == 'running') document.getElementById("output3").innerHTML = "Operation created successfully";
+                if(data) {
+                  document.getElementById("output3").innerHTML = "Operation created successfully, operation id: ";
+                  document.getElementById("op_id").innerHTML = data;
+                  this.op_id = data;
+                }
                 else console.log(data);
               
                 }).catch((error) => {

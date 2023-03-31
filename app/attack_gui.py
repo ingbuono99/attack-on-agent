@@ -4,7 +4,7 @@ from aiohttp_jinja2 import template, web
 from app.service.auth_svc import for_all_public_methods, check_authorization
 from app.utility.base_world import BaseWorld
 from plugins.attack.app.attack_svc import AttackService
-import json
+
 
 @for_all_public_methods(check_authorization)
 class AttackGUI(BaseWorld):
@@ -40,4 +40,10 @@ class AttackGUI(BaseWorld):
     async def newoperation(self, request):
         data = await request.json()
         operation = await self.attack_svc.new_operation(name = data['name']);
-        return web.Response(text = operation.state)
+        return web.Response(text = operation.id)
+    
+    async def newlink(self, request):
+       data = await request.json()
+       access = dict(access=tuple(await self.auth_svc.get_permissions(request)))
+       link = await self.attack_svc.new_potential_link(operation_id = data['operation_id'], paw = data['paw'], ability_id = data['ability_id'],  access = access)
+       return web.Response(text = link.id)
