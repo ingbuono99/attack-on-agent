@@ -60,9 +60,11 @@
       <p id="output3"></p>
       <p id="op_id"></p>
       <br><br>
-
+      <h2>Prova nuovo link: seleziona abilità dal menu superiore</h2>
       <button type="button" x-on:click="provaLink" style="font-size: 20px;">Prova nuovo link</button>
-      <p id="output4"></p>
+      <p id="potentialLink"></p>
+      <button type="button" x-on:click="getLinkResults" style="font-size: 20px;">Link results</button>
+      <p id="linkresults"></p>
 </div>
 
 <script>
@@ -202,17 +204,17 @@ function alpineAttack() {
         //ANCHE QUESTA DA TOGLIERE, LA METTO PER DEBUGGARE PIÙ VELOCEMENTE
 
          provaLink() {
+           this.ability_id = document.getElementById('selectedability').value;
            let requestBody = {
                      operation_id: this.op_id,
                      paw: this.selectedAgent.paw,
-                     ability_id : 'b18e8767-b7ea-41a3-8e80-baf65a5ddef5'
+                     ability_id : this.ability_id  
 
                  };
                  console.log(requestBody)
                  apiV2('POST', '/plugin/attack/newlink', requestBody).then((data) => {
                  if(data) 
-                   document.getElementById("output4").textContent = data;
-                 
+                   document.getElementById("potentialLink").textContent = data;
               
                  }).catch((error) => {
                      console.error(error);
@@ -238,6 +240,19 @@ function alpineAttack() {
               }
               else document.getElementById("output2").textContent =  'Still pending...';
           },
+
+
+          getLinkResults(link_id) {
+                  this.potentialLink = document.getElementById("potentialLink").textContent
+                  
+                  apiV2('GET', `/api/v2/operations/${this.op_id}/links/${this.potentialLink}/result`).then((res) => {
+                        console.log(res)
+                       this.selectedLinkResults = JSON.parse(b64DecodeUnicode(res.result));
+                       document.getElementById("linkresults").textContent = JSON.stringify(this.selectedLinkResults)
+                  }).catch(
+                        () => { console.error('Error getting link results.'); document.getElementById("linkresults").textContent = "Wait..." });
+                
+            },
 
         createOperation(){
           this.op_name = document.getElementById('op_name').value;

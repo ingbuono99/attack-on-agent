@@ -90,7 +90,7 @@ class AttackService(BaseService):  #importo BaseService perchè sta là il metod
         for ex in ability.executors:
             if ex.name == agent.executors[0]:
                 executor = ex
-        self.log.info('execturo trovato, comando: %s' %executor.command)
+        self.log.info('exectuor found, command: %s' %executor.command)
       
         #vars needed to convert executor class in a dictionary. vars adds some useless parameters that we get rid of with that for loop.
         #We MUST remove these parameters, otherwise the ExecutorSchema().load  in build_executor() is going to fail.
@@ -98,11 +98,13 @@ class AttackService(BaseService):  #importo BaseService perchè sta là il metod
         #same thing for ability
         dictAb = {k: v for k, v in vars(ability).items() if not k.startswith('_')}
 
-        #construcd data dictionary
+        #construct data dictionary
         data = dict(paw= paw,executor =  dictEx, ability = dictAb, platform = None, executors = None)
         
-
+        #create a new potential link
         link = await self.create_potential_link(operation_id, agent, data, access)
+
+        #Maybe better return link.display in the future
         return link
 
 
