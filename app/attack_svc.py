@@ -9,14 +9,17 @@ from app.api.v2.responses import JsonHttpBadRequest, JsonHttpForbidden, JsonHttp
 from app.objects.secondclass.c_link import Link
 from app.utility.base_world import BaseWorld
 from base64 import b64encode
-import json
+from app.api.v2.managers.operation_api_manager import OperationApiManager
 
-class AttackService(BaseService):  #importo BaseService perchè sta là il metodo get_service().
+
+class AttackService(OperationApiManager):  
     def __init__(self, services):
+        
+        #self.file_svc = services.get('file_svc')
+        #self.data_svc = services.get('data_svc')
+        #self.log = logging.getLogger('attack_svc')
+        super().__init__(services)
         self.services = services
-        self.file_svc = services.get('file_svc')
-        self.data_svc = services.get('data_svc')
-        self.log = logging.getLogger('attack_svc')
 
     async def foo(self):
         return 'bar'
@@ -26,10 +29,10 @@ class AttackService(BaseService):  #importo BaseService perchè sta là il metod
     async def send_ability(self, paw, ability_id, obfuscator, facts=()):
         new_links = []
         #converted_facts = [Fact(trait=f['trait'], value=f['value']) for f in data.get('facts', [])]
-        for agent in await self.get_service('data_svc').locate('agents', dict(paw=paw)):
+        for agent in await self._data_svc.locate('agents', dict(paw=paw)):
             self.log.info('Tasking %s with %s' % (paw, ability_id))
             links = await agent.task(
-                abilities=await self.get_service('data_svc').locate('abilities', match=dict(ability_id=ability_id)),
+                abilities=await self._data_svc.locate('abilities', match=dict(ability_id=ability_id)),
                 obfuscator=obfuscator,
                 facts=facts # facts = converted_facts
             )
@@ -42,14 +45,14 @@ class AttackService(BaseService):  #importo BaseService perchè sta là il metod
     async def new_operation(self, name):
         #find the default source
         defaultSourceId = 'ed32b9c3-9593-4c33-b0db-e2007315096b'  # basic fact source
-        sources = await self.data_svc.locate("sources")
+        sources = await self._data_svc.locate("sources")
         for source in sources:
             if source.id == defaultSourceId:
                 src = source
         self.log.info("source trovata: %s " %src.name)
 
         #find the atomic planner
-        planners = await self.data_svc.locate('planners')
+        planners = await self._data_svc.locate('planners')
         for p in planners:
             if p.name == "atomic":
                 planner = p
@@ -62,7 +65,8 @@ class AttackService(BaseService):  #importo BaseService perchè sta là il metod
 
         #create and save the new operation
         operation = Operation(adversary = adv, name = name, source = src, planner = planner)
-        await self.data_svc.store(operation)
+        await operation.update_operation_agents(self.services)
+        await self._data_svc.store(operation)
 
         return operation
     
@@ -72,14 +76,14 @@ class AttackService(BaseService):  #importo BaseService perchè sta là il metod
     #2) 'command', so we have to retrieve the command associated with the needed ability and selected exectuor name
     async def new_potential_link(self, operation_id, paw , ability_id, access):
         
-        agents_list = await self.data_svc.locate('agents')
+        agents_list = await self._data_svc.locate('agents')
         for ag in agents_list:
             if ag.paw == paw:
                 agent = ag
         self.log.info("paw %s" %agent.paw)
       
         #Retrieve ability by given id
-        abilities = await self.data_svc.locate('abilities')
+        abilities = await self._data_svc.locate('abilities')
         for ab in abilities:
             if ab.ability_id == ability_id:
                 ability = ab
@@ -101,51 +105,16 @@ class AttackService(BaseService):  #importo BaseService perchè sta là il metod
         #construct data dictionary
         data = dict(paw= paw,executor =  dictEx, ability = dictAb, platform = None, executors = None)
         
+        #method override
+        OperationApiManager.build_ability = self.build_ability
+
         #create a new potential link
-        link = await self.create_potential_link(operation_id, agent, data, access)
+        link = await self.create_potential_link(operation_id, data, access)
 
-        #Maybe better return link.display in the future
+        #This one returning is actually link.display
         return link
 
-
-    async def create_potential_link(self, operation_id, agent, data: dict, access: BaseWorld.Access):
-        self.validate_link_data(data)
-        operation = await self.get_operation_object(operation_id, access)
-        if data['executor']['name'] not in agent.executors:
-            raise JsonHttpBadRequest(f'Agent {agent.paw} missing specified executor')
-        encoded_command = self._encode_string(agent.replace(self._encode_string(data['executor']['command']),
-                                              file_svc=self.services['file_svc']))
-        executor = self.build_executor(data=data.pop('executor', {}), agent=agent)
-        ability = self.build_ability(data=data.pop('ability', {}), executor=executor)
-        link = Link.load(dict(command=encoded_command, plaintext_command=encoded_command, paw=agent.paw, ability=ability, executor=executor,
-                              status=operation.link_status(), score=data.get('score', 0), jitter=data.get('jitter', 0),
-                              cleanup=data.get('cleanup', 0), pin=data.get('pin', 0),
-                              host=agent.host, deadman=data.get('deadman', False), used=data.get('used', []),
-                              relationships=data.get('relationships', [])))
-        
-        link.apply_id(agent.host)
-        await operation.apply(link)
-        #maybe better to return link.display in the future
-        return link
-    
-
-    async def get_operation_object(self, operation_id: str, access: dict):
-        self.log.info("get_operation_object")
-        try:
-            operation = (await self.data_svc.locate('operations', {'id': operation_id}))[0]
-        except IndexError:
-            raise JsonHttpNotFound(f'Operation not found: {operation_id}')
-        if operation.match(access):
-            return operation
-        raise JsonHttpForbidden(f'Cannot view operation due to insufficient permissions: {operation_id}')
-    
-    def build_executor(self, data: dict, agent):
-        if not data.get('timeout'):
-            data['timeout'] = 60
-        data['platform'] = agent.platform
-        executor = ExecutorSchema().load(data)
-        return executor
-    
+    #Need to override this function to add that data.pop('tags') line that causes problems. Tags, in fact, is not present in AbilitySchema.
     def build_ability(self, data: dict, executor: Executor):
         if not data.get('ability_id'):
             data['ability_id'] = str(uuid.uuid4())
@@ -160,28 +129,14 @@ class AttackService(BaseService):  #importo BaseService perchè sta là il metod
         if not data.get('description'):
             data['description'] = 'Manual command ability'
         data['executors'] = [ExecutorSchema().dump(executor)]
-        #Delete tags attribute, not present in AbilitySchema
+        #Added line
         data.pop('tags')
         ability = AbilitySchema().load(data)
         return ability
-    
-    def validate_link_data(self, link_data: dict):
-        self.log.info("validate_link_data")
-        if not link_data.get('executor'):
-            raise JsonHttpBadRequest('\'executor\' is a required field for link creation.')
-        if not link_data['executor'].get('name'):
-            raise JsonHttpBadRequest('\'name\' is a required field for link executor.')
-        if not link_data['executor'].get('command'):
-            raise JsonHttpBadRequest('\'command\' is a required field for link executor.')
-        if not link_data.get('paw'):
-            raise JsonHttpBadRequest('\'paw\' is a required field for link creation.')
-        
-    @staticmethod
-    def _encode_string(s):
-        return str(b64encode(s.encode()), 'utf-8')
 
-    #QUI ANDRANNO LE FUNZIONI PER RECUPERARE I RISULTATI, VEDI SEMPRE FILE operation_api_manager.py
-    #Altrimenti valuta di andare a leggerli direttamente da javascript, come fa il plugin Access
+    
+
+
 
     
     
