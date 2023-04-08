@@ -35,7 +35,7 @@ class AttackGUI(BaseWorld):
             self.log.info(links_id[i])
             i = i + 1
         
-        return web.json_response(links_id)  #PER ORA RITORNO SOLO GLI ID, FORSE SAREBBE MEGLIO RITORNARE GLI OGGETTI??
+        return web.json_response(links_id)  #return list of link ids
 
     async def newoperation(self, request):
         data = await request.json()
@@ -46,4 +46,4 @@ class AttackGUI(BaseWorld):
        data = await request.json()
        access = dict(access=tuple(await self.auth_svc.get_permissions(request)))
        link = await self.attack_svc.new_potential_link(operation_id = data['operation_id'], paw = data['paw'], ability_id = data['ability_id'],  access = access)
-       return web.Response(text = link.id)
+       return web.Response(text = link['id']) #access this way cause that is the dumped dictionary link.display
