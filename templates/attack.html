@@ -24,6 +24,9 @@
               font-size: 20px;
               margin-bottom: 5px;
             }
+            select {
+              width: 350px;
+            }
           </style>
         <form>
           <label for="agent">Select the agent: (paw - last seen - host)</label>
@@ -31,7 +34,7 @@
           </select>
           <br>
           <div x-data="{ input: '', results: [], selectedIndex: null, selectedability: 'null' }">
-            <label for="searchAbility">Cerca una abilità: </label>
+            <label for="searchAbility">Find ability: </label>
             <input type="text" x-model="input" x-on:input="searchAbility" />
             <select x-show="results.length > 0" x-model="selectedIndex" x-on:change="selectedability = results[selectedIndex]">
               <template x-for="(result, index) in results">
@@ -39,7 +42,7 @@
               </template>
             </select>
             <div>
-              <label for="selectedability">ID dell'abilità selezionata:</label>
+              <label for="selectedability">Selected ability id:</label>
               <input type="text" id="selectedability" x-model="selectedability.ability_id" readonly />
             </div>
           </div>
@@ -52,19 +55,49 @@
       <p id="output"></p>
       <p id="output2"></p>
       <br><br>
-      <button type="submit" x-on:click="checkLink" style="font-size: 20px;">Vedi output MOMENTANEO</button>
-      <br><br>
+      <h2>Create a new operation</h2>
       <label for="op_name" style="color:white">Insert operation name here:</label>
       <input type="text" id="op_name" name="op_name" placeholder="Operation name">
-      <button type="submit" x-on:click="createOperation" style="font-size: 20px;">Crea operazione</button>
+      <button type="submit" x-on:click="createOperation" style="font-size: 20px;">Create operation</button>
       <p id="output3"></p>
       <p id="op_id"></p>
       <br><br>
-      <h2>Prova nuovo link: seleziona abilità dal menu superiore</h2>
-      <button type="button" x-on:click="provaLink" style="font-size: 20px;">Prova nuovo link</button>
+      <h2>Add a potential link</h2>
+      <button type="button" x-on:click="provaLink" style="font-size: 20px;">Add new link</button>
       <p id="potentialLink"></p>
       <button type="button" x-on:click="getLinkResults" style="font-size: 20px;">Link results</button>
       <p id="linkresults"></p>
+
+      <table>
+        <tr>
+          <th>Select Agent</th>
+          <th>Select Operation</th>
+          <th>Select Ability</th>
+        </tr>
+        <tr>
+          <td>
+              <select id="agentselect2">
+            </select>
+          </td>
+          <td>
+            <select id="op_menu"></select>
+          </td>
+          <td>
+            <div x-data="{ input: '', results: [], selectedId: null }">
+              <label for="searchAbility">Find ability: </label>
+              <input type="text" x-model="input" x-on:input="searchAbility" />
+              <select x-show="results.length > 0" x-model="selectedId" x-on:change="$refs.abilityInput.value = selectedId">
+                <template x-for="(result, index) in results">
+                  <option :value="result.ability_id" x-text="result.name"></option>
+                </template>
+              </select>
+              <label for="ability">Ability ID:</label>
+              <input type="text" id="ability" x-ref="abilityInput" x-model="selectedId" readonly />
+            </div>
+          </td>
+        </tr>
+      </table>
+      
 </div>
 
 <script>
@@ -73,13 +106,17 @@
 1)Per ora si vedono tutti gli agent, ma a me servono solo quelli alive
 2) Filtrare le abilities in base all'executor dell'agent selezionato
 */
+
+let intervalID;
 function alpineAttack() {
     return {
         name: '{{ name }}',
         description: '{{ description }}',
         sampleVariable: '',
         links : [],
+        intervalID : null,
         obfuscators : [],
+        operations : [],
         abilities : [],
         agents : [],
 
@@ -89,6 +126,9 @@ function alpineAttack() {
                     return apiV2('GET', '/api/v2/abilities');
                 }).then((abilities) => {
                     this.abilities = abilities;
+                    return apiV2('GET', '/api/v2/operations');
+                }).then((operations) => {
+                    this.operations = operations;
                    
                     return apiV2('GET', '/api/v2/obfuscators');
                 }).then(async (obfuscators) => {
@@ -97,6 +137,7 @@ function alpineAttack() {
                     while (this.$refs.attackHeader) {
                         await sleep(3000);
                         this.refreshAgents();
+                        this.refreshOperations();
                         this.domCreate();
                     }
                 }).catch((error) => {
@@ -115,32 +156,83 @@ function alpineAttack() {
             },
 
 
+          refreshOperations() {
+                apiV2('GET', '/api/v2/operations').then((operations) => {
+                    this.operations = operations;
+                    console.info(operations);
+                }).catch((error) => {
+                    toast('There was an error refreshing the page', false);
+                    console.error(error);
+                });
+            },
+            
+
+
         sortAgents() {
                 this.agents.sort((a, b) => new Date(b.last_seen.replace(/-/g, "/")).getTime() - new Date(a.last_seen.replace(/-/g, "/")).getTime());
             },
         
 
         domCreate() {
-          //remove all the options in the menu, then update the list with the new refreshed agents
+          //remove all the options in the menu, then update the list with the new refreshed agents/operations
           const menu1 = document.getElementById('agentselect');
-          const options = menu1.querySelectorAll('option');
+          const menu2 = document.getElementById('agentselect2');
+          const menu3 = document.getElementById('op_menu');
+          let options = menu1.querySelectorAll('option');
           options.forEach(option => option.remove());
+          options = menu2.querySelectorAll('option');
+          options.forEach(option => option.remove());
+          options = menu3.querySelectorAll('option');
+          options.forEach(option => option.remove());
+          
           //check if there are agents deployed
           if((this.agents).length == 0 ) {
-                        const option = document.createElement('option');
-                        option.value = 'undefined';
-                        option.textContent = 'No agents deployed, you have to deploy one before...';
-                       
-                        menu1.appendChild(option);
+                        const option1 = document.createElement('option');
+                        option1.value = 'undefined';
+                        option1.textContent = 'No agents deployed, you have to deploy one before...';
+                        const option2 = document.createElement('option');
+                        option2.value = 'undefined';
+                        option2.textContent = 'No agents deployed, you have to deploy one before...';
+                        menu1.appendChild(option1);
+                        menu2.appendChild(option2);
                     }
                     else {
-                    for (let i = 0; i < this.agents.length; i++) {
-                    const option = document.createElement('option');
-                    option.value = this.agents[i].paw;  //the id will be only the paw, cause that's all we need to run an ability
-                    option.textContent = this.agents[i].paw + ' -  ' + this.agents[i].last_seen + '   -  ' + this.agents[i].host;
-                   
-                    menu1.appendChild(option);
-                    } }
+                      for (let i = 0; i < this.agents.length; i++) {
+                        const option1 = document.createElement('option');
+                        option1.value = this.agents[i].paw;
+                        option1.textContent = this.agents[i].paw + ' -  ' + this.agents[i].last_seen + '   -  ' + this.agents[i].host;
+                        menu1.appendChild(option1);
+
+                        const option2 = document.createElement('option');
+                        option2.value = this.agents[i].paw;
+                        option2.textContent = this.agents[i].paw + ' -  ' + this.agents[i].last_seen + '   -  ' + this.agents[i].host;
+                        menu2.appendChild(option2);
+                    
+           
+                  } }
+          //same for operations menu
+          
+              if(this.operations.length == 0) {
+                const option3 = document.createElement('option');
+                option3.value = 'undefined';
+                option3.textContent = 'No operations found, you have to create one before...';
+                op_menu.appendChild(option3);
+              }
+              else {
+              const op_menu = document.getElementById("op_menu");
+
+              // creiamo l'elemento select
+              const select = document.createElement("select");
+
+              // creiamo le opzioni del menù a tendina
+              for (let i = 0; i < this.operations.length; i++) {
+                const option3 = document.createElement("option");
+                option3.value = this.operations[i].name;
+                option3.textContent = this.operations[i].name;
+                op_menu.appendChild(option3);
+              }
+        
+            }
 
         },
 
@@ -186,8 +278,8 @@ function alpineAttack() {
                       stringa.push('link' + i + ': **' + response[i] + '**'); //the ** are put to easily retrieve the needed string after
                     }
                     document.getElementById("output").textContent = stringa
-                    this.linkID_da_passare = response[response.length - 1]; //MOMENTANEAMNTE PRENDO L'ULTIMO ELEMENTO, POI ANDRÀ RECUPERATO L'ID DALL'HTML
-
+                    this.link_to_read = response[response.length - 1]; //retrieve last link
+                    this.intervalID = setInterval(this.showOutput.bind(this), 3000); //read result every 3 seconds
                 }).catch((error) => {
                 document.getElementById("res").innerHTML = "Something  went wrong, see logs for more information"
                 toast('Error loading page', false);
@@ -195,11 +287,7 @@ function alpineAttack() {
                 alert(error);
             }) }
         },
-        //!!!!!! DA TOGLIERE E DA IMPLEMENTARE CON LE PROMISE !!!!!!!!!
-       //momentanea, poi la tolgo. Mi serve perchè il link non viene immediatamente aggiunto, c'è un ritardo dovuto dal server.
-        checkLink() {
-          this.showOutput(this.linkID_da_passare);
-            },
+       
 
         //ANCHE QUESTA DA TOGLIERE, LA METTO PER DEBUGGARE PIÙ VELOCEMENTE
 
@@ -223,26 +311,34 @@ function alpineAttack() {
 
 
       
-        showOutput(link_id) {
+        showOutput() {
                 this.refreshAgents(); //Update agents to update link list
                 this.selectedAgent = this.agents.find((agent) => agent.paw == this.agent_paw);
                 console.log("linkstotali: ", this.selectedAgent.links.length);
-                this.lastlink = this.selectedAgent.links.find((link) => link.id == link_id)
-
-                //.status==0 SUCCESS, .status > 0 FAILED, .status < 0 IN PROGRESS 
+                try {
+                  //try catch needed cause the creation of the new link requires a while to be updated
+                    this.lastlink = this.selectedAgent.links.find((link) => link.id == this.link_to_read);
+                    //.status==0 SUCCESS, .status > 0 FAILED, .status < 0 IN PROGRESS 
                 if(this.lastlink.status >= 0) {
-                restRequest('POST', { 'index': 'result', 'link_id': link_id }, (data) => {
+                restRequest('POST', { 'index': 'result', 'link_id': this.link_to_read }, (data) => {
                     this.outputResult = b64DecodeUnicode(data.output);
                     console.log("output: ", this.outputResult);
                     document.getElementById("output2").innerHTML =  this.outputResult;
+                    clearInterval(this.intervalID);
                 });
             
               }
               else document.getElementById("output2").textContent =  'Still pending...';
+                    
+                } catch (error) {
+                    console.error(error);
+                }
+
+                
           },
 
 
-          getLinkResults(link_id) {
+          getLinkResults(link_to_read) {
                   this.potentialLink = document.getElementById("potentialLink").textContent
                   
                   apiV2('GET', `/api/v2/operations/${this.op_id}/links/${this.potentialLink}/result`).then((res) => {
